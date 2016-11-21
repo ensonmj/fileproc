@@ -205,7 +205,7 @@ func (w *seqFileWriter) Write(li lineInfo) (int, error) {
 }
 
 // WithSequence keep output follow input sequence
-func WithSequence(parent FileWriter) *seqFileWriter {
+func WithSequence(parent FileWriter) FileWriter {
 	return &seqFileWriter{
 		FileWriter: parent,
 	}
