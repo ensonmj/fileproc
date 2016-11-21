@@ -22,10 +22,9 @@ type processor struct {
 }
 
 type lineInfo struct {
-	Index      int
-	Bytes      []byte
-	procChan   chan lineInfo
-	writerChan chan lineInfo
+	Index    int
+	Bytes    []byte
+	procChan chan lineInfo
 }
 
 func newProcessor(num int, lp LineProcessor) *processor {
@@ -40,7 +39,7 @@ func newProcessor(num int, lp LineProcessor) *processor {
 func (p *processor) proc(r io.Reader, fw FileWriter) error {
 	procChan := make(chan lineInfo, p.NumProc)
 	writerChan := make(chan lineInfo, p.NumProc)
-	p.registerProc(procChan)
+	p.registerProc(procChan, writerChan)
 	p.registerWriter(writerChan, fw)
 
 	lineCount := 0
@@ -52,9 +51,8 @@ func (p *processor) proc(r io.Reader, fw FileWriter) error {
 			return p.ctx.Err()
 		default:
 			li := lineInfo{
-				Index:      lineCount,
-				Bytes:      make([]byte, len(sc.Bytes())),
-				writerChan: writerChan,
+				Index: lineCount,
+				Bytes: make([]byte, len(sc.Bytes())),
 			}
 			copy(li.Bytes, sc.Bytes())
 			procChan <- li
@@ -71,31 +69,31 @@ func (p *processor) proc(r io.Reader, fw FileWriter) error {
 	return sc.Err()
 }
 
-func (p *processor) registerProc(c <-chan lineInfo) {
+func (p *processor) registerProc(pc <-chan lineInfo, wc chan<- lineInfo) {
 	for i := 0; i < p.NumProc; i++ {
 		p.procEG.Go(func() error {
-			for li := range c {
+			for li := range pc {
 				// ignore error here, just for keep input sequence
 				li.Bytes = p.Process(li.Bytes)
-				li.writerChan <- li
+				wc <- li
 			}
 			return nil
 		})
 	}
 }
 
-func (p *processor) registerWriter(c <-chan lineInfo, fw FileWriter) {
+func (p *processor) registerWriter(wc <-chan lineInfo, fw FileWriter) {
 	p.writerEG.Go(func() error {
 		if err := fw.Open(); err != nil {
 			p.cancel()
-			drainChan(c)
+			drainChan(wc)
 			return err
 		}
 
-		for li := range c {
+		for li := range wc {
 			if _, err := fw.Write(li); err != nil {
 				p.cancel()
-				drainChan(c)
+				drainChan(wc)
 				return err
 			}
 		}
