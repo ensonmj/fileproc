@@ -36,13 +36,13 @@ func TestSequenceWrite(t *testing.T) {
 	inSlice := randByteSlice(inNum, 20)
 	for _, b := range inSlice {
 		buf.Write(b)
-		buf.Write([]byte{'\n'})
+		buf.WriteRune('\n')
 	}
 
 	lw := &LineWorker{}
 	bw := newBufferWriter()
-	fp := newProcessor(10, lw)
-	fp.proc(bufio.NewReader(&buf), WithSequence(bw))
+	fp := newProcessor(10, lw, nil)
+	fp.run(bufio.NewReader(&buf), WithSequence(bw))
 
 	outSlice := bytes.Split(bw.buf.Bytes(), []byte{'\n'})
 	outSlice = outSlice[:len(outSlice)-1]
@@ -81,7 +81,7 @@ func TestSplitWrite(t *testing.T) {
 	}
 
 	lw := &LineWorker{}
-	fp := NewFileProcessor(10, 100, true, lw, DummyWrapper())
+	fp := NewFileProcessor(10, 100, true, lw, nil, DummyWrapper())
 	fp.ProcPath(dir, dir, ".out")
 
 	index := 0
@@ -117,16 +117,16 @@ func BenchmarkWriter(b *testing.B) {
 	inSlice := randByteSlice(inNum, 20)
 	for _, b := range inSlice {
 		buf.Write(b)
-		buf.Write([]byte{'\n'})
+		buf.WriteRune('\n')
 	}
 
 	lw := &LineWorker{}
-	fp := newProcessor(10, lw)
+	fp := newProcessor(10, lw, nil)
 	bw := newBufferWriter()
 
 	rand.Seed(9893489983248324)
 	for i := 0; i < b.N; i++ {
-		fp.proc(bufio.NewReader(&buf), bw)
+		fp.run(bufio.NewReader(&buf), bw)
 	}
 }
 
@@ -136,15 +136,15 @@ func BenchmarkSeqWriter(b *testing.B) {
 	inSlice := randByteSlice(inNum, 20)
 	for _, b := range inSlice {
 		buf.Write(b)
-		buf.Write([]byte{'\n'})
+		buf.WriteRune('\n')
 	}
 
 	lw := &LineWorker{}
-	fp := newProcessor(10, lw)
+	fp := newProcessor(10, lw, nil)
 	bw := newBufferWriter()
 
 	rand.Seed(9893489983248324)
 	for i := 0; i < b.N; i++ {
-		fp.proc(bufio.NewReader(&buf), WithSequence(bw))
+		fp.run(bufio.NewReader(&buf), WithSequence(bw))
 	}
 }

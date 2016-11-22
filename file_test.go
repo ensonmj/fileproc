@@ -8,10 +8,9 @@ import (
 	"testing"
 )
 
-type LineWorker struct {
-}
+type LineWorker struct{}
 
-func (w *LineWorker) Process(line []byte) []byte {
+func (w *LineWorker) Map(line []byte) []byte {
 	return append(line, '\n')
 }
 
@@ -25,6 +24,7 @@ func randBytes(maxLen int) []byte {
 	return buf
 }
 
+// maybe repetitive
 func randByteSlice(num, maxLen int) [][]byte {
 	rand.Seed(9893489983248324)
 	var byteSlice [][]byte
@@ -60,7 +60,7 @@ func TestPathProc(t *testing.T) {
 	}
 
 	lw := &LineWorker{}
-	fp := NewFileProcessor(10, 0, true, lw, DummyWrapper())
+	fp := NewFileProcessor(10, 0, true, lw, nil, DummyWrapper())
 	fp.ProcPath(dir, dir, ".out")
 
 	of1, err := os.Open(file1.Name() + ".out")

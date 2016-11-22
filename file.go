@@ -7,10 +7,8 @@ import (
 )
 
 type FileProcessor struct {
-	NumProc  int
 	SplitCnt int
 	Seq      bool
-	LineProcessor
 	FileWrapper
 	fp *processor
 }
@@ -28,7 +26,7 @@ func (p *FileProcessor) ProcFile(path, dir, ext string) error {
 	if p.Seq {
 		fw = WithSequence(fw)
 	}
-	return p.fp.proc(f, fw)
+	return p.fp.run(f, fw)
 }
 
 func (p *FileProcessor) ProcPath(path, dir, ext string) error {
@@ -47,22 +45,20 @@ func (p *FileProcessor) ProcPath(path, dir, ext string) error {
 		if p.Seq {
 			fw = WithSequence(fw)
 		}
-		return p.fp.proc(f, fw)
+		return p.fp.run(f, fw)
 	})
 }
 
-func NewFileProcessor(num, splitCnt int, seq bool, lp LineProcessor, fw FileWrapper) *FileProcessor {
+func NewFileProcessor(num, splitCnt int, seq bool, m Mapper, r Reducer, fw FileWrapper) *FileProcessor {
 	return &FileProcessor{
-		NumProc:       num,
-		SplitCnt:      splitCnt,
-		Seq:           seq,
-		LineProcessor: lp,
-		FileWrapper:   fw,
-		fp:            newProcessor(num, lp),
+		SplitCnt:    splitCnt,
+		Seq:         seq,
+		FileWrapper: fw,
+		fp:          newProcessor(num, m, r),
 	}
 }
 
-func ProcTerm(num int, lp LineProcessor, fw FileWrapper) error {
-	fp := newProcessor(num, lp)
-	return fp.proc(os.Stdin, WithSequence(NewTermWriter(fw)))
+func ProcTerm(num int, m Mapper, r Reducer, fw FileWrapper) error {
+	fp := newProcessor(num, m, r)
+	return fp.run(os.Stdin, WithSequence(NewTermWriter(fw)))
 }

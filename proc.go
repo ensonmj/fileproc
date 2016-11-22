@@ -8,38 +8,50 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type LineProcessor interface {
-	Process(data []byte) []byte
+type Mapper interface {
+	Map(data []byte) []byte
+}
+
+type Reducer interface {
+	Reduce(data []byte) []byte
 }
 
 type processor struct {
-	LineProcessor
-	NumProc  int
-	ctx      context.Context
-	cancel   context.CancelFunc
-	procEG   errgroup.Group
-	writerEG errgroup.Group
+	Mapper
+	Reducer
+	NumMapper int
+	mapperEG  errgroup.Group
+	reducerEG errgroup.Group
+	writerEG  errgroup.Group
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 type lineInfo struct {
-	Index    int
-	Bytes    []byte
-	procChan chan lineInfo
+	Index int
+	Bytes []byte
 }
 
-func newProcessor(num int, lp LineProcessor) *processor {
+func newProcessor(num int, m Mapper, r Reducer) *processor {
 	p := &processor{
-		LineProcessor: lp,
-		NumProc:       num,
+		NumMapper: num,
+		Mapper:    m,
+		Reducer:   r,
 	}
 	p.ctx, p.cancel = context.WithCancel(context.Background())
 	return p
 }
 
-func (p *processor) proc(r io.Reader, fw FileWriter) error {
-	procChan := make(chan lineInfo, p.NumProc)
-	writerChan := make(chan lineInfo, p.NumProc)
-	p.registerProc(procChan, writerChan)
+func (p *processor) run(r io.Reader, fw FileWriter) error {
+	mapperChan := make(chan lineInfo, p.NumMapper)
+	reducerChan := make(chan lineInfo, p.NumMapper)
+	writerChan := make(chan lineInfo, p.NumMapper)
+	if p.Reducer != nil {
+		p.registerMapper(mapperChan, reducerChan)
+		p.registerReducer(reducerChan, writerChan)
+	} else {
+		p.registerMapper(mapperChan, writerChan)
+	}
 	p.registerWriter(writerChan, fw)
 
 	lineCount := 0
@@ -55,13 +67,18 @@ func (p *processor) proc(r io.Reader, fw FileWriter) error {
 				Bytes: make([]byte, len(sc.Bytes())),
 			}
 			copy(li.Bytes, sc.Bytes())
-			procChan <- li
+			mapperChan <- li
 			lineCount++
 		}
 	}
 
-	close(procChan)
-	p.procEG.Wait()
+	close(mapperChan)
+	p.mapperEG.Wait()
+
+	if p.Reducer != nil {
+		close(reducerChan)
+		p.reducerEG.Wait()
+	}
 
 	close(writerChan)
 	p.writerEG.Wait()
@@ -69,17 +86,28 @@ func (p *processor) proc(r io.Reader, fw FileWriter) error {
 	return sc.Err()
 }
 
-func (p *processor) registerProc(pc <-chan lineInfo, wc chan<- lineInfo) {
-	for i := 0; i < p.NumProc; i++ {
-		p.procEG.Go(func() error {
-			for li := range pc {
+func (p *processor) registerMapper(rc <-chan lineInfo, wc chan<- lineInfo) {
+	for i := 0; i < p.NumMapper; i++ {
+		p.mapperEG.Go(func() error {
+			for li := range rc {
 				// ignore error here, just for keep input sequence
-				li.Bytes = p.Process(li.Bytes)
+				li.Bytes = p.Map(li.Bytes)
 				wc <- li
 			}
 			return nil
 		})
 	}
+}
+
+func (p *processor) registerReducer(rc <-chan lineInfo, wc chan<- lineInfo) {
+	p.reducerEG.Go(func() error {
+		for li := range rc {
+			// ignore error here, just for keep input sequence
+			li.Bytes = p.Reduce(li.Bytes)
+			wc <- li
+		}
+		return nil
+	})
 }
 
 func (p *processor) registerWriter(wc <-chan lineInfo, fw FileWriter) {
