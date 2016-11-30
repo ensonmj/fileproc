@@ -29,7 +29,6 @@ type processor struct {
 	inputLineCnt int
 	mapOutCnt    int32
 	redOutCnt    int
-	writeCnt     int
 }
 
 type lineInfo struct {
@@ -47,8 +46,8 @@ func newProcessor(num int, m Mapper, r Reducer) *processor {
 	return p
 }
 
-func (p *processor) stat() (int, int, int, int) {
-	return p.inputLineCnt, int(p.mapOutCnt), p.redOutCnt, p.writeCnt
+func (p *processor) stat() (int, int, int) {
+	return p.inputLineCnt, int(p.mapOutCnt), p.redOutCnt
 }
 
 func (p *processor) run(r io.Reader, fw FileWriter) error {
@@ -63,6 +62,7 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 	}
 	p.registerWriter(writerChan, fw)
 
+	lineIndex := 0
 	sc := bufio.NewScanner(r)
 	sc.Buffer([]byte{}, 2*1024*1024) // default 64k, change to 2M
 	for sc.Scan() {
@@ -71,14 +71,15 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 			return p.ctx.Err()
 		default:
 			li := lineInfo{
-				Index: p.inputLineCnt,
+				Index: lineIndex,
 				Bytes: make([]byte, len(sc.Bytes())),
 			}
 			copy(li.Bytes, sc.Bytes())
 			mapperChan <- li
-			p.inputLineCnt++
+			lineIndex++
 		}
 	}
+	p.inputLineCnt += lineIndex
 
 	close(mapperChan)
 	p.mapperEG.Wait()
@@ -133,12 +134,10 @@ func (p *processor) registerWriter(wc <-chan lineInfo, fw FileWriter) {
 		}
 
 		for li := range wc {
-			if n, err := fw.Write(li); err != nil {
+			if _, err := fw.Write(li); err != nil {
 				p.cancel()
 				drainChan(wc)
 				return err
-			} else if n > 0 {
-				p.writeCnt++
 			}
 		}
 

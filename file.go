@@ -49,7 +49,7 @@ func (p *FileProcessor) ProcPath(path, dir, ext string) error {
 	})
 }
 
-func (p *FileProcessor) Stat() (int, int, int, int) {
+func (p *FileProcessor) Stat() (int, int, int) {
 	return p.fp.stat()
 }
 
