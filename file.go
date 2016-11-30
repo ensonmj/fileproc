@@ -49,6 +49,10 @@ func (p *FileProcessor) ProcPath(path, dir, ext string) error {
 	})
 }
 
+func (p *FileProcessor) Stat() (int, int, int, int) {
+	return p.fp.stat()
+}
+
 func NewFileProcessor(num, splitCnt int, seq bool, m Mapper, r Reducer, fw FileWrapper) *FileProcessor {
 	return &FileProcessor{
 		SplitCnt:    splitCnt,

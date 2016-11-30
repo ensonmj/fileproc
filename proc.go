@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"io"
+	"sync/atomic"
 
 	"golang.org/x/sync/errgroup"
 )
@@ -19,12 +20,16 @@ type Reducer interface {
 type processor struct {
 	Mapper
 	Reducer
-	NumMapper int
-	mapperEG  errgroup.Group
-	reducerEG errgroup.Group
-	writerEG  errgroup.Group
-	ctx       context.Context
-	cancel    context.CancelFunc
+	NumMapper    int
+	mapperEG     errgroup.Group
+	reducerEG    errgroup.Group
+	writerEG     errgroup.Group
+	ctx          context.Context
+	cancel       context.CancelFunc
+	inputLineCnt int
+	mapOutCnt    int32
+	redOutCnt    int
+	writeCnt     int
 }
 
 type lineInfo struct {
@@ -42,6 +47,10 @@ func newProcessor(num int, m Mapper, r Reducer) *processor {
 	return p
 }
 
+func (p *processor) stat() (int, int, int, int) {
+	return p.inputLineCnt, int(p.mapOutCnt), p.redOutCnt, p.writeCnt
+}
+
 func (p *processor) run(r io.Reader, fw FileWriter) error {
 	mapperChan := make(chan lineInfo, p.NumMapper)
 	reducerChan := make(chan lineInfo, p.NumMapper)
@@ -54,7 +63,6 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 	}
 	p.registerWriter(writerChan, fw)
 
-	lineCount := 0
 	sc := bufio.NewScanner(r)
 	sc.Buffer([]byte{}, 2*1024*1024) // default 64k, change to 2M
 	for sc.Scan() {
@@ -63,12 +71,12 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 			return p.ctx.Err()
 		default:
 			li := lineInfo{
-				Index: lineCount,
+				Index: p.inputLineCnt,
 				Bytes: make([]byte, len(sc.Bytes())),
 			}
 			copy(li.Bytes, sc.Bytes())
 			mapperChan <- li
-			lineCount++
+			p.inputLineCnt++
 		}
 	}
 
@@ -92,6 +100,9 @@ func (p *processor) registerMapper(rc <-chan lineInfo, wc chan<- lineInfo) {
 			for li := range rc {
 				// ignore error here, just for keep input sequence
 				li.Bytes = p.Map(li.Bytes)
+				if li.Bytes != nil {
+					atomic.AddInt32(&p.mapOutCnt, 1)
+				}
 				wc <- li
 			}
 			return nil
@@ -104,6 +115,9 @@ func (p *processor) registerReducer(rc <-chan lineInfo, wc chan<- lineInfo) {
 		for li := range rc {
 			// ignore error here, just for keep input sequence
 			li.Bytes = p.Reduce(li.Bytes)
+			if li.Bytes != nil {
+				p.redOutCnt++
+			}
 			wc <- li
 		}
 		return nil
@@ -119,10 +133,12 @@ func (p *processor) registerWriter(wc <-chan lineInfo, fw FileWriter) {
 		}
 
 		for li := range wc {
-			if _, err := fw.Write(li); err != nil {
+			if n, err := fw.Write(li); err != nil {
 				p.cancel()
 				drainChan(wc)
 				return err
+			} else if n > 0 {
+				p.writeCnt++
 			}
 		}
 

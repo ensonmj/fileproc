@@ -21,7 +21,7 @@ type LineMR struct {
 	cache map[string]int
 }
 
-func (w *LineMR) Map(line []byte) []byte {
+func (*LineMR) Map(line []byte) []byte {
 	return line
 }
 
