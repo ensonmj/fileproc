@@ -61,6 +61,44 @@ func (p *FileProcessor) ProcPath(path, dir, ext string) error {
 	})
 }
 
+func (p *FileProcessor) ProcPathReverse(path, dir, ext string) error {
+	var fns []string
+	filepath.Walk(path, func(subPath string, fi os.FileInfo, err error) error {
+		if fi.IsDir() || err != nil {
+			return nil
+		}
+		fns = append(fns, subPath)
+		return nil
+	})
+
+	num := len(fns)
+	for i := num - 1; i >= 0; i-- {
+		fn := fns[i]
+		f, err := os.Open(fn)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		base := filepath.Base(fn)
+		noSuffix := strings.TrimSuffix(base, filepath.Ext(base))
+		if p.PrefixTime {
+			day := time.Now().Format("20060102150405")
+			noSuffix = day + "_" + noSuffix
+		}
+		fw := NewFileWriter(p.FileWrapper, dir, noSuffix, ext, p.SplitCnt)
+		if p.Seq {
+			fw = WithSequence(fw)
+		}
+		err = p.fp.run(f, fw)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (p *FileProcessor) Stat() (int, int, int) {
 	return p.fp.stat()
 }
