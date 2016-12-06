@@ -68,6 +68,7 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 	for sc.Scan() {
 		select {
 		case <-p.ctx.Done():
+			p.inputLineCnt += lineIndex
 			return p.ctx.Err()
 		default:
 			li := lineInfo{

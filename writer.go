@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
-	"strings"
 )
 
 type FileWrapper interface {
@@ -135,12 +134,10 @@ func (w *splitWriter) Close() error {
 }
 
 func NewFileWriter(fw FileWrapper, dir, fn, ext string, splitCnt int) FileWriter {
-	base := filepath.Base(fn)
-	noSuffix := strings.TrimSuffix(base, filepath.Ext(base))
 	w := simpleWriter{
 		FileWrapper: fw,
 		dir:         dir,
-		fn:          noSuffix,
+		fn:          fn,
 		ext:         ext,
 	}
 	if splitCnt <= 0 {

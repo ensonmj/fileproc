@@ -81,7 +81,7 @@ func TestSplitWrite(t *testing.T) {
 	}
 
 	lw := &LineWorker{}
-	fp := NewFileProcessor(10, 100, true, lw, nil, DummyWrapper())
+	fp := NewFileProcessor(10, 100, true, false, lw, nil, DummyWrapper())
 	fp.ProcPath(dir, dir, ".out")
 
 	index := 0
