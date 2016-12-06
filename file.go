@@ -103,17 +103,17 @@ func (p *FileProcessor) Stat() (int, int, int) {
 	return p.fp.stat()
 }
 
-func NewFileProcessor(num, splitCnt int, seq, prefixTime bool, m Mapper, r Reducer, fw FileWrapper) *FileProcessor {
+func NewFileProcessor(num, maxSize, splitCnt int, seq, prefixTime bool, m Mapper, r Reducer, fw FileWrapper) *FileProcessor {
 	return &FileProcessor{
 		SplitCnt:    splitCnt,
 		Seq:         seq,
 		PrefixTime:  prefixTime,
 		FileWrapper: fw,
-		fp:          newProcessor(num, m, r),
+		fp:          newProcessor(num, maxSize, m, r),
 	}
 }
 
-func ProcTerm(num int, m Mapper, r Reducer, fw FileWrapper) error {
-	fp := newProcessor(num, m, r)
+func ProcTerm(num, maxSize int, m Mapper, r Reducer, fw FileWrapper) error {
+	fp := newProcessor(num, maxSize, m, r)
 	return fp.run(os.Stdin, WithSequence(NewTermWriter(fw)))
 }

@@ -41,7 +41,7 @@ func TestSequenceWrite(t *testing.T) {
 
 	lw := &LineWorker{}
 	bw := newBufferWriter()
-	fp := newProcessor(10, lw, nil)
+	fp := newProcessor(10, 2, lw, nil)
 	fp.run(bufio.NewReader(&buf), WithSequence(bw))
 
 	outSlice := bytes.Split(bw.buf.Bytes(), []byte{'\n'})
@@ -81,7 +81,7 @@ func TestSplitWrite(t *testing.T) {
 	}
 
 	lw := &LineWorker{}
-	fp := NewFileProcessor(10, 100, true, false, lw, nil, DummyWrapper())
+	fp := NewFileProcessor(10, 2, 100, true, false, lw, nil, DummyWrapper())
 	fp.ProcPath(dir, dir, ".out")
 
 	index := 0
@@ -121,7 +121,7 @@ func BenchmarkWriter(b *testing.B) {
 	}
 
 	lw := &LineWorker{}
-	fp := newProcessor(10, lw, nil)
+	fp := newProcessor(10, 2, lw, nil)
 	bw := newBufferWriter()
 
 	rand.Seed(9893489983248324)
@@ -140,7 +140,7 @@ func BenchmarkSeqWriter(b *testing.B) {
 	}
 
 	lw := &LineWorker{}
-	fp := newProcessor(10, lw, nil)
+	fp := newProcessor(10, 2, lw, nil)
 	bw := newBufferWriter()
 
 	rand.Seed(9893489983248324)

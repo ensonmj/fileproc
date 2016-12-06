@@ -60,7 +60,7 @@ func TestPathProc(t *testing.T) {
 	}
 
 	lw := &LineWorker{}
-	fp := NewFileProcessor(10, 0, true, false, lw, nil, DummyWrapper())
+	fp := NewFileProcessor(10, 2, 0, true, false, lw, nil, DummyWrapper())
 	fp.ProcPath(dir, dir, ".out")
 
 	of1, err := os.Open(file1.Name() + ".out")

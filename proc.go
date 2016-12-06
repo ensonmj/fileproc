@@ -21,6 +21,7 @@ type processor struct {
 	Mapper
 	Reducer
 	NumMapper    int
+	BufMaxSize   int
 	mapperEG     errgroup.Group
 	reducerEG    errgroup.Group
 	writerEG     errgroup.Group
@@ -36,11 +37,12 @@ type lineInfo struct {
 	Bytes []byte
 }
 
-func newProcessor(num int, m Mapper, r Reducer) *processor {
+func newProcessor(num, maxSize int, m Mapper, r Reducer) *processor {
 	p := &processor{
-		NumMapper: num,
-		Mapper:    m,
-		Reducer:   r,
+		NumMapper:  num,
+		BufMaxSize: maxSize,
+		Mapper:     m,
+		Reducer:    r,
 	}
 	p.ctx, p.cancel = context.WithCancel(context.Background())
 	return p
@@ -64,7 +66,7 @@ func (p *processor) run(r io.Reader, fw FileWriter) error {
 
 	lineIndex := 0
 	sc := bufio.NewScanner(r)
-	sc.Buffer([]byte{}, 2*1024*1024) // default 64k, change to 2M
+	sc.Buffer([]byte{}, p.BufMaxSize*1024*1024) // default 64k, change to BufMaxSize M
 	for sc.Scan() {
 		select {
 		case <-p.ctx.Done():

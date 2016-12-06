@@ -64,7 +64,7 @@ func TestReducer(t *testing.T) {
 
 	lmr := &LineMR{cache: make(map[string]int)}
 	bw := newBufferWriter()
-	fp := newProcessor(10, lmr, lmr)
+	fp := newProcessor(10, 2, lmr, lmr)
 	fp.run(bufio.NewReader(&buf), WithSequence(bw))
 
 	outSlice := bytes.Split(bw.buf.Bytes(), []byte{'\n'})
