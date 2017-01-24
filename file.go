@@ -78,7 +78,6 @@ func (p *FileProcessor) ProcPathReverse(path, dir, ext string) error {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
 
 		base := filepath.Base(fn)
 		noSuffix := strings.TrimSuffix(base, filepath.Ext(base))
@@ -91,6 +90,8 @@ func (p *FileProcessor) ProcPathReverse(path, dir, ext string) error {
 			fw = WithSequence(fw)
 		}
 		err = p.fp.run(f, fw)
+
+		f.Close()
 		if err != nil {
 			return err
 		}
